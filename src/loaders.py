@@ -15,3 +15,12 @@ def loader_generic(file):
     data = pd.read_csv(file)
     return data["value"].values
 
+
+def loader_riccione(file, sensor):
+    """
+    loads file of data of one sensor from riccione dataset in a vector
+    :param file: input file
+    :param sensor: sensor is a variable of sensor type (see sensors.py)
+    """
+    data = pd.read_csv(file, header=None, delimiter=';')
+    return data[data[1] == sensor.string][2].fillna(0).values

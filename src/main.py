@@ -79,3 +79,7 @@ print(dataset[3])
 #         print(dist)
 # print(len(anomalies))
 # print(anomalies)
+
+# TAXI, WITH SMOOTHING, window_size 51, window warmup 700, 0.30 thres
+# detector = Loda(window_size, 700, 0.30)
+# [3211, 7160, 8457, 8509, 8649, 8985, 10030, 10082]

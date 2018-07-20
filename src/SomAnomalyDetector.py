@@ -40,6 +40,9 @@ class Som(object):
         self._neighy = arange(y)
         self._d = self._sigma * self._sigma
 
+        # frequencies map
+        self._frequencies = np.zeros((x, y))
+
     def _gaussian_neighbourhood(self, rep_cords):
         """
         Compute the gaussian similarities between the coordinates of the representant
@@ -65,6 +68,7 @@ class Som(object):
         for i in range(self._x):
             for j in range(self._y):
                 self._reps[i][j] = self._update_function(data_point, self._reps[i][j], neigh_dist[i][j])
+        self._frequencies += neigh_dist
 
     def get_representant(self, data_point):
         """
@@ -133,14 +137,14 @@ class SomAnomalyDetector(object):
         representant recently, the table will have the same shape of the Som.
         Each frequency is periodically multiplied by a decaying factor.
         '''
-        self._frequencies = np.zeros((x, y))
-        self._counter = 0
+        self._counter1 = 0
+        self._counter2 = 0
 
     def get_representants(self):
         return self._som._reps
 
     def get_frequencies(self):
-        return self._frequencies
+        return self._som_frequencies
 
     def add_data_point(self, data_point):
         """
@@ -149,18 +153,23 @@ class SomAnomalyDetector(object):
         :return: Anomaly score of the item.
         """
         rep, distance_score = self._som.add_data_point(data_point)
-        self._counter += 1
+        neigh_dist = self._som._gaussian_neighbourhood(rep)
+        self._counter1 += 1
+        self._counter2 += 1
 
-        # update and get
-        freq = self._frequencies[rep] = self._frequencies[rep] + 1
+        # get frequency
+        freq = np.sum(self._som._frequencies[rep] * neigh_dist)
 
-        # decay frequencies if we reached the end of our decay period
-        if self._counter == self._decay_period:
-            self._counter *= self._decay_factor
-            self._frequencies *= self._decay_factor
+        normalizer = np.sum(self._som._frequencies)
 
         # negative log of frequency
-        frequency_score = -math.log(freq / self._counter)
+        frequency_score = -math.log(freq / normalizer)
+
+        # decay frequencies if we reached the end of our decay period
+        if self._counter1 == self._decay_period:
+            self._counter1 = 0
+            self._counter2 *= self._decay_factor
+            self._som._frequencies *= self._decay_factor
 
         # combine scores
         total_score = (1. - self._beta) * distance_score + self._beta * frequency_score

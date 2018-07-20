@@ -38,10 +38,10 @@ iterations = 1000
 smoothing = [True, False]
 normalization = [True, False]
 dimension = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10]
-window_size = [11, 25, 51, 75, 101, 125, 151, 175, 201, 225, 250, 275, 300]
+window_size = [11, 25, 51, 75, 101, 125, 151, 175, 201, 225, 251, 275, 301]
 sigma = [0.1, 0.3, 0.5, 1, 1.5, 2, 3, 5]
 update_weight = [0.001, 0.005, 0.1, 0.2, 0.3, 0.4]
-beta = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+beta = [0.0005, 0.001, 0.005, 0.007, 0.008, 0.01]
 decay_period = [200, 400, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000, 5000, 7000]
 
 params = [smoothing, normalization, dimension, window_size, sigma, update_weight, beta, decay_period]
@@ -50,9 +50,13 @@ params = np.array(params)
 indices = np.random.randint(0, params.shape[0], iterations)
 params = params[indices]
 
+msg = "smoothing= %s, normalization= %s, dimension= %s, wsize= %s, sigma= %s, update_weight= %s, beta= %s, " \
+      "decay_period= %s, thres= %s -> f1 = %s"
 for u in range(iterations):
     tmp_smoothing, tmp_normalization, tmp_dimension, tmp_window_size, tmp_sigma, tmp_update_weight, tmp_beta, tmp_decay_period = \
-    params[u]
+        params[u]
+    print("### running with")
+    print(msg % (tmp_smoothing, tmp_normalization, tmp_dimension, tmp_window_size, tmp_sigma, tmp_update_weight, tmp_beta, tmp_decay_period, 0, 0))
 
     # init
     predictions = []
@@ -70,6 +74,4 @@ for u in range(iterations):
     thres, f1 = get_thres(dataset, anomalies, predictions, int(tmp_window_size))
 
     print("--------")
-    msg = "smoothing= %s, normalization= %s, dimension= %s, wsize= %s, sigma= %s, update_weight= %s, beta= %s, " \
-          "decay_period= %s, thres= %s -> f1 = %s"
     print(msg % (tmp_smoothing, tmp_normalization, tmp_dimension, tmp_window_size, tmp_sigma, tmp_update_weight, tmp_beta, tmp_decay_period, thres, f1))

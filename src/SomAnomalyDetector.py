@@ -1,3 +1,4 @@
+import math
 import numpy as np
 from numpy import (power, exp, arange, outer)
 
@@ -24,7 +25,8 @@ class Som(object):
         self._update_weight = update_weight
 
         self._constructor = lambda *args: np.random.random((1, self._vector_size))
-        self._distance = lambda data_point, representant: np.linalg.norm(data_point/np.linalg.norm(data_point) - representant/np.linalg.norm(representant))
+        self._distance = lambda data_point, representant: np.linalg.norm(
+            data_point / np.linalg.norm(data_point) - representant / np.linalg.norm(representant))
         self._update_function = lambda input, rep, weight: rep + ((input - rep) * weight * self._update_weight)
 
         # init representants
@@ -103,33 +105,27 @@ class SomAnomalyDetector(object):
     Base class for Som based clusterers.
     """
 
-    def __init__(self, x, y, vector_size, sigma, update_weight, distance_thres, frequency_thres, ignored_items=0,
+    def __init__(self, x, y, vector_size, sigma, update_weight, beta, ignored_items=0,
                  decay_period=20000, decay_factor=0.7):
         """
         Initializes the clusterer by initializing the Som. This can be used without providing the distance or update function, but
         if those are not provided default functions that assume inputs to be np.arrays are going to be used. A constructor
         function for representants is to be provided.
 
-        :param distance_thres: Threshold to determine when to return that something is an anomaly, basically if the distance
-        between an item and its representant is beyond this value.
-        :param frequency_thres: Threshold to determine when to retun that something is an anomay, in this case if the
-        estimated frequency of the related representant is too low.
         :param x: Width of the som.
         :param y: Height of the som.
         :param vector_size: Length of each data point, which is a vector; each representant in the SOM will be
         a vector of the same length.
         :param sigma: Sigma parameter for the gaussian neighbourhood function for the Som.
         :param ignored_items: Number of items to ignore, the ignored items will still count towards updating the som, but
-        will not be declared as anomalies. Given ignored_items = X, the first X items added to the map will be "ignored".
+        will have an anomaly score of 0.
         :param decay_period: Every decay_period frequencies will decay based on the decay factor.
         :param decay_factor: Frequencies will me multiplied by this value every decary_period.
         """
         # self organizing map
         self._som = Som(x, y, vector_size, sigma, update_weight)
 
-        # threshold to determine when to return that something is an anomaly
-        self._thres = distance_thres
-        self._frequency_thres = frequency_thres
+        self._beta = beta
 
         self._ignored_items = ignored_items
         self._decay_period = decay_period
@@ -141,7 +137,6 @@ class SomAnomalyDetector(object):
         Each frequency is periodically multiplied by a decaying factor.
         '''
         self._frequencies = np.zeros((x, y))
-        # used to keep track of how many data points we have seen, zeroing will occur when counter == decay_period
         self._counter = 0
 
     def get_representants(self):
@@ -154,20 +149,25 @@ class SomAnomalyDetector(object):
         """
         Clusters an item, returning its representant and if it is an anomaly or not.
         :param data_point: Item to add.
-        :return: A tuple (isAnomaly, distance), isAnomaly is a boolean, distance is the distance between the data point
-        and its rep.
+        :return: Anomaly score of the item.
         """
-        rep, distance = self._som.add_data_point(data_point)
+        rep, distance_score = self._som.add_data_point(data_point)
         self._ignored_items = max(-1, self._ignored_items - 1)
         self._counter += 1
-
-        # decay frequencies if we reached the end of our decay period
-        if self._counter == self._decay_period:
-            self._counter = 0
-            self._frequencies *= self._decay_factor
 
         # update and get
         freq = self._frequencies[rep] = self._frequencies[rep] + 1
 
-        # isAnomaly IF  (no more ignoring items AND (too distant from rep And too infrequent))
-        return self._ignored_items < 0 and (distance >= self._thres or freq <= self._frequency_thres), distance
+        # decay frequencies if we reached the end of our decay period
+        if self._counter == self._decay_period:
+            self._counter *= self._decay_factor
+            self._frequencies *= self._decay_factor
+
+        # negative log of frequency
+        frequency_score = -math.log(freq / self._counter)
+
+        # combine scores
+        total_score = (1. - self._beta) * distance_score + self._beta * frequency_score
+        if self._ignored_items > 0:
+            total_score = 0
+        return total_score

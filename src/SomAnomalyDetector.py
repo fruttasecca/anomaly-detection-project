@@ -170,4 +170,4 @@ class SomAnomalyDetector(object):
         freq = self._frequencies[rep] = self._frequencies[rep] + 1
 
         # isAnomaly IF  (no more ignoring items AND (too distant from rep And too infrequent))
-        return self._ignored_items < 0 and (distance >= self._thres and freq <= self._frequency_thres), distance
+        return self._ignored_items < 0 and (distance >= self._thres or freq <= self._frequency_thres), distance

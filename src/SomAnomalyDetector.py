@@ -105,7 +105,7 @@ class SomAnomalyDetector(object):
     Base class for Som based clusterers.
     """
 
-    def __init__(self, x, y, vector_size, sigma, update_weight, beta, ignored_items=0,
+    def __init__(self, x, y, vector_size, sigma, update_weight, beta,
                  decay_period=20000, decay_factor=0.7):
         """
         Initializes the clusterer by initializing the Som. This can be used without providing the distance or update function, but
@@ -117,8 +117,6 @@ class SomAnomalyDetector(object):
         :param vector_size: Length of each data point, which is a vector; each representant in the SOM will be
         a vector of the same length.
         :param sigma: Sigma parameter for the gaussian neighbourhood function for the Som.
-        :param ignored_items: Number of items to ignore, the ignored items will still count towards updating the som, but
-        will have an anomaly score of 0.
         :param decay_period: Every decay_period frequencies will decay based on the decay factor.
         :param decay_factor: Frequencies will me multiplied by this value every decary_period.
         """
@@ -127,7 +125,6 @@ class SomAnomalyDetector(object):
 
         self._beta = beta
 
-        self._ignored_items = ignored_items
         self._decay_period = decay_period
         self._decay_factor = decay_factor
 
@@ -152,7 +149,6 @@ class SomAnomalyDetector(object):
         :return: Anomaly score of the item.
         """
         rep, distance_score = self._som.add_data_point(data_point)
-        self._ignored_items = max(-1, self._ignored_items - 1)
         self._counter += 1
 
         # update and get
@@ -168,6 +164,4 @@ class SomAnomalyDetector(object):
 
         # combine scores
         total_score = (1. - self._beta) * distance_score + self._beta * frequency_score
-        if self._ignored_items > 0:
-            total_score = 0
         return total_score

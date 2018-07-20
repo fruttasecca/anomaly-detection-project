@@ -55,11 +55,10 @@ for u in range(iterations):
     params[u]
 
     # init
-    ignored_items = 0
     predictions = []
     dataset = Dataset(data, tmp_smoothing, int(tmp_normalization), int(tmp_window_size), 1, 1)
     detector = SomAnomalyDetector(int(tmp_dimension), int(tmp_dimension), int(tmp_window_size), tmp_sigma, tmp_update_weight, tmp_beta,
-                                  ignored_items, int(tmp_decay_period), decay_factor=0.5)
+                                  int(tmp_decay_period), decay_factor=0.5)
 
     # give score to each window
     for i in range(len(dataset)):

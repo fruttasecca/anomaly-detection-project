@@ -3,10 +3,9 @@ import math
 
 
 class Loda(object):
-    def __init__(self, vector_size, window_size, thres):
+    def __init__(self, vector_size, window_size):
         self._dimensions = vector_size
         self.window_size = window_size
-        self.thres = thres
 
         self._current_point = 0
         self._window_data = []
@@ -40,13 +39,12 @@ class Loda(object):
         self._current_point += 1
         self._window_data.append(data_point)
 
-        is_anomaly, anomaly_score = False, 0
+        anomaly_score = 0
         # if we are not saving data points to build vectors and histograms for the first time
         if self._histograms is not None:
             anomaly_score = self._score(data_point)
-            is_anomaly = anomaly_score > self.thres
 
-        return is_anomaly, anomaly_score
+        return anomaly_score
 
     def _score(self, data_point):
         """

@@ -13,7 +13,7 @@ def loader_generic(file):
     :return: Numpy ndarray of values in the second column of the file.
     """
     data = pd.read_csv(file)
-    return data["value"].values
+    return data["value"].values, data["anomaly"].values
 
 
 def loader_riccione(file, sensor):

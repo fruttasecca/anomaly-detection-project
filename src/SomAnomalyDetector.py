@@ -41,6 +41,10 @@ class Som(object):
         self._d = self._sigma * self._sigma
 
         # frequencies map
+        """
+        Keep track of frequencies of items based on position, not an hard counter (fre[rep]+1) but propagated
+        in a manner similar to how the representants get updated.
+        """
         self._frequencies = np.zeros((x, y))
 
     def _gaussian_neighbourhood(self, rep_cords):
@@ -59,7 +63,8 @@ class Som(object):
         """
         Update the representants based on their similarity with the input. The most
         similar representant (similar to the input) will be updated the most, the update
-        will "flood" starting from that representant, slowly losing weight.
+        will "flood" starting from that representant, slowly losing weight; frequencies are
+        updated as well.
         :param data_point: Data_point based on which we will update the reps.
         :param representant: Representant of the data_point (pair of coordinates), from where
         the update flood will start from.
@@ -68,6 +73,8 @@ class Som(object):
         for i in range(self._x):
             for j in range(self._y):
                 self._reps[i][j] = self._update_function(data_point, self._reps[i][j], neigh_dist[i][j])
+
+        # update frequencies
         self._frequencies += neigh_dist
 
     def get_representant(self, data_point):
@@ -109,8 +116,7 @@ class SomAnomalyDetector(object):
     Base class for Som based clusterers.
     """
 
-    def __init__(self, x, y, vector_size, sigma, update_weight, beta,
-                 decay_period=20000, decay_factor=0.7):
+    def __init__(self, x, y, vector_size, sigma, update_weight, decay_period=20000, decay_factor=0.7):
         """
         Initializes the clusterer by initializing the Som. This can be used without providing the distance or update function, but
         if those are not provided default functions that assume inputs to be np.arrays are going to be used. A constructor
@@ -127,18 +133,13 @@ class SomAnomalyDetector(object):
         # self organizing map
         self._som = Som(x, y, vector_size, sigma, update_weight)
 
-        self._beta = beta
-
         self._decay_period = decay_period
         self._decay_factor = decay_factor
 
         '''
-        Init the table of counters to keep track of how many times we have seen something relatable to a certain
-        representant recently, the table will have the same shape of the Som.
-        Each frequency is periodically multiplied by a decaying factor.
+        To keep track on when to decay.
         '''
-        self._counter1 = 0
-        self._counter2 = 0
+        self._counter = 0
 
     def get_representants(self):
         return self._som._reps
@@ -154,23 +155,21 @@ class SomAnomalyDetector(object):
         """
         rep, distance_score = self._som.add_data_point(data_point)
         neigh_dist = self._som._gaussian_neighbourhood(rep)
-        self._counter1 += 1
-        self._counter2 += 1
+        self._counter += 1
 
         # get frequency
-        freq = np.sum(self._som._frequencies[rep] * neigh_dist)
-
+        freq = np.sum(self._som._frequencies * neigh_dist)
         normalizer = np.sum(self._som._frequencies)
 
-        # negative log of frequency
+        # negative log of frequency (taking abs because freq/normalizer could be slightly greater than 1 for numeric
+        # reasons)
         frequency_score = -math.log(freq / normalizer)
 
         # decay frequencies if we reached the end of our decay period
-        if self._counter1 == self._decay_period:
-            self._counter1 = 0
-            self._counter2 *= self._decay_factor
+        if self._counter == self._decay_period:
+            self._counter = 0
             self._som._frequencies *= self._decay_factor
 
         # combine scores
-        total_score = (1. - self._beta) * distance_score + self._beta * frequency_score
+        total_score = distance_score * frequency_score
         return total_score

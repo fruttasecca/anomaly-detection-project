@@ -5,8 +5,8 @@ aenum is useful for accessing data both from string and alias
 
 class Sensors(Enum):
     """
-    Sensors.PORTATA1.value returns 1
-    Sensors('SO01_01-aMisura').value returns 1
+    Sensors.PORTATA1.value returns 0
+    Sensors('SO01_01-aMisura').value returns 0
     Sensors.SENSORS_NUM.value returns number of sensors ()
     Sensors.OXY1.string returns 'SO03_01-aMisura'
     """

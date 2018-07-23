@@ -139,9 +139,9 @@ def search_som(dataset, iterations, output):
 
 
 if __name__ == "__main__":
-    datasets = ["taxi", "machine"]
+    datasets = ["taxi", "machine", "artificial"]
     algos = ["loda", "som"]
-    np.random.seed(1337)
+    # np.random.seed(1337)
 
     # args check
     if len(sys.argv) != 5:
@@ -163,6 +163,8 @@ if __name__ == "__main__":
         dataset = "../data/taxi/nyc_taxi_train.csv"
     elif dataset == "machine":
         dataset = "../data/machine_temperature/machine_temperature_system_failure_train.csv"
+    elif dataset == "artificial":
+        dataset = "../data/artificial/artificial_train.csv"
 
     # run
     if algo == "loda":

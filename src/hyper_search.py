@@ -25,20 +25,33 @@ def loader_generic(file):
 
 def get_thres(labels, scores, beta=0.1):
     thres = np.arange(0, scores.max(), 0.01)
+    thres = thres[::-1]
 
     best_thres = 0
-    best_F1 = 0
-    best_FPR = 0
-    best_RFPR_ratio = 0
+    best_f1 = 0
+    best_fpr = 0
+    best_rfpr_ratio = 0
     best_precision = 0
     best_recall = 0
     pred = 0
 
+    # all zeros at start, set to 2 when the threshold gets low enough
+    predicted_anomalies = np.zeros(len(scores))
+
+    # sorted scores, descending
+    sorted_score = list(np.sort(scores)[::-1])
+    # index of sorted scores, descending
+    sorted_idx = list(np.argsort(scores)[::-1])
+
     # for each thres compute f1
-    best_f1 = 0
     for th in thres:
+        # flag as anomalies idx with scores above th
+        while len(sorted_score) > 0 and sorted_score[0] >= th:
+            predicted_anomalies[sorted_idx[0]] = 2
+            del sorted_idx[0]
+            del sorted_score[0]
+
         # get stats
-        predicted_anomalies = [2 * (score >= th) for score in scores]
         idx = predicted_anomalies + labels
         tn = (idx == 0.0).sum().item()  # tn
         fn = (idx == 1.0).sum().item()  # fn
@@ -54,22 +67,18 @@ def get_thres(labels, scores, beta=0.1):
         fpr = fp / (fp + tn + 1e-7)
 
         # recall / FPR
-        RFPR_ratio = r / (fpr + 1e-7)
+        rfpr_ratio = r / (fpr + 1e-7)
 
         if f1 > best_f1:
             best_thres = th
-            best_F1 = f1
-            best_FPR = fpr
-            best_RFPR_ratio = RFPR_ratio
+            best_f1 = f1
+            best_fpr = fpr
+            best_rfpr_ratio = rfpr_ratio
             best_precision = p
             best_recall = r
-            pred = [pred / 2 for pred in predicted_anomalies]
+            pred = predicted_anomalies[:] / 2
 
-    print("---")
-    print(np.sum(pred))
-    print(np.sum(labels))
-    print(np.sum(labels * pred))
-    return best_thres, best_F1, best_FPR, best_RFPR_ratio, best_precision, best_recall, np.sum(pred), np.sum(
+    return best_thres, best_f1, best_fpr, best_rfpr_ratio, best_precision, best_recall, np.sum(pred), np.sum(
         labels), np.sum(
         labels * pred)
 
@@ -209,7 +218,6 @@ if __name__ == "__main__":
     output = sys.argv[4]
 
     beta = float(sys.argv[5])
-    print(beta)
 
     multiplier = 1
     # get dataset

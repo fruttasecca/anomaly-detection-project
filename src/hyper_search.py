@@ -11,6 +11,7 @@ import itertools
 from Loda import Loda
 from SomAnomalyDetector import SomAnomalyDetector
 from dataset import Dataset
+from RnnAnomalyDetector import RnnAnomalyDetector
 
 
 def loader_generic(file):
@@ -62,6 +63,7 @@ def get_thres(labels, scores, beta):
         r = tp / (tp + fn + 1e-7)
 
         # get F1
+
         f1 = ((1 + beta * beta) * p * r) / (beta * beta * p + r + 1e-7)
 
         # FPR
@@ -206,33 +208,36 @@ def search_som(dataset, iterations, output, multiplier):
 
 
 def search_rnn(dataset, iterations, output, multiplier):
-    msg = "model= %s, augment= %s, dropout= %s, batch_size= %s, epochs= %s, clip=%s, lr=%s," \
-          "nlayers= %s, nhid = %s, window_size=%s thres= %s -> f1 = %s"
-    columns = ["model", "augment", "dropout", "batch_size", "epochs", "clip", "lr", "nlayers",
-               "nhid", "window_size", "thres",
+    msg = """
+    Il pirla
+    
+    Prima di chiudere gli occhi mi hai detto pirla,
+    una parola gergale non traducibile.
+    Da allora me la porto addosso come un marchio
+    che resiste alla pomice. Ci sono anche altri
+    pirla nel mondo ma come riconoscerli ?
+    I pirla non sanno di esserlo. Se pure
+    ne fossero informati tenterebbero
+    di scollarsi con le unghie quello stimma.
+    
+    Eugenio Montale
+    """
+    columns = ["smoothing", "normalization", "diff_window_size", "encoded_dim", "num_rnn_layers", "lr", "hidden_size", "window_size", "thres",
                "f1", "beta", "FPR", "RFPR", "Prec", "Rec", "tot_pred", "tot_labels", "tot_correctly_pred"]
-    df_runs = pd.DataFrame(columns=columns)
-    model = ['LSTM']
-    augment = [True, False]
-    augment = [True]
-    seed = [1111]
-    dropout = [0.0, 0.2, 0.5, 0.7]
-    # dropout = [0.0]
-    batch_size = [64, 32, 128]
-    batch_size = [32]
-    epochs = [50, 100, 200]
-    # epochs = [1]
-    clip = [10, 5, 1, 15]
-    lr = [0.0002, 0.0001, 0.0005, 0.001, 0.005]
-    lr = [0.001]
-    nlayers = [2, 1, 3]
-    nlayers = [5]
-    nhid = [32, 64, 128, 256]
-    nhid = [128, 256]
-    # emsize = [128]
-    window_size = [11, 25, 51, 75, 101, 125, 151, 175, 201, 225, 251, 275, 301]
 
-    params = [model, augment, seed, dropout, batch_size, epochs, clip, lr, nlayers, nhid]  # , emsize]
+    df_runs = pd.DataFrame(columns=columns)
+    smoothing = [True, False]
+    normalization = [True, False]
+    diff_window_size = [120, 150, 300, 600]
+    encoded_dim = [10, 20, 30]
+    num_rnn_layers = [1]
+    lr = [0.001, 0.005]
+    hidden_size = [128, 256, 512]
+    window_size = [10, 25, 50, 75, 100, 125, 150, 175, 200, 225, 250, 275, 300]
+
+    data, labels = loader_generic(dataset)
+
+    params = [smoothing, normalization, diff_window_size, encoded_dim, num_rnn_layers, lr, hidden_size, window_size]
     params = list(itertools.product(*params))
     params = np.array(params)
     indices = np.random.randint(0, params.shape[0], iterations)
@@ -240,51 +245,50 @@ def search_rnn(dataset, iterations, output, multiplier):
 
     for ite in range(iterations):
         # get parameters for this run
+        tmp_smoothing, tmp_normalization, tmp_diff_window_size,\
+        tmp_encoded_dim, tmp_num_rnn_layers, tmp_lr, tmp_hidden_size, tmp_window_size = \
+            params[ite]
+        if 1.5*tmp_window_size > tmp_diff_window_size:
+            continue
+        tmp_normalization = int(tmp_normalization)
+        tmp_window_size = int(tmp_window_size) * multiplier
+        tmp_window_size = tmp_window_size + 1 if tmp_window_size % 2 == 0 else tmp_window_size
 
-        temp_model, temp_augment, temp_seed, temp_dropout, temp_batch_size, \
-        temp_epochs, temp_clip, temp_lr, temp_nlayers, temp_nhid = params[ite]
-
-        print("--------")
-        print(msg % (temp_model, temp_augment, temp_dropout, temp_batch_size,
-                     temp_epochs, temp_clip, temp_lr, temp_nlayers, temp_nhid, "sti cazzi", "sti cazzi", "sti cazzi"))
         # init
-        data, labels = loader_generic(dataset)
+        dataset = Dataset(data, tmp_smoothing, tmp_normalization, tmp_window_size, 1, 1)
+        scores = np.zeros(len(dataset.data))
+        detector = RnnAnomalyDetector(int(tmp_window_size), tmp_lr, int(tmp_diff_window_size), int(tmp_encoded_dim))
 
         # give score to each window
-        tmp_window_size = random.choice(window_size)
-        tmp_window_size = int(tmp_window_size) * multiplier
-
-        dataset1 = Dataset(data, False, False, tmp_window_size, 1, 1)
-        scores = np.zeros(len(dataset1.data))
-        detector = None  # RnnAnomalyDetector(trainfile=dataset, testfile=dataset)
-        detector.train(*params[ite])
-        detector.predict()
-
-        print("lunghezza dataset : {}".format(len(dataset1)))
-        for i in range(len(dataset1)):
-            data_point = dataset1[i]
+        for i in range(len(dataset)):
+            if i % tmp_diff_window_size == 0:
+                print("iteration {}".format(i))
+            data_point = dataset[i]
             window_score = detector.add_data_point(data_point)
             # update score of elements in window
             for u in range(i, i + tmp_window_size):
                 scores[u] = max(scores[u], window_score)
 
-        # check which threshold would give the best f1
         beta = 1
         thres, f1, fpr, rfpr, p, r, tot_pred, tot_labels, tot_cor = get_thres(labels[:len(scores)], scores, beta)
         df_runs = df_runs.append(pd.DataFrame(
-            [[temp_model, temp_augment, temp_dropout, temp_batch_size,
-              temp_epochs, temp_clip, temp_lr, temp_nlayers, temp_nhid, tmp_window_size, thres, f1, beta, fpr, rfpr, p, r,
-              tot_pred, tot_labels, tot_cor]], columns=columns),
+            [[tmp_smoothing, tmp_normalization, tmp_diff_window_size,
+              tmp_encoded_dim, tmp_num_rnn_layers, tmp_lr, tmp_hidden_size,
+              tmp_window_size, thres, f1, beta, fpr, rfpr, p, r, tot_pred, tot_labels, tot_cor]], columns=columns),
             ignore_index=True)
+        print(msg)
+        print("f1 = {}".format(f1))
 
         beta = 0.1
         thres, f1, fpr, rfpr, p, r, tot_pred, tot_labels, tot_cor = get_thres(labels[:len(scores)], scores, beta)
         df_runs = df_runs.append(pd.DataFrame(
-            [[temp_model, temp_augment, temp_dropout, temp_batch_size,
-              temp_epochs, temp_clip, temp_lr, temp_nlayers, temp_nhid, tmp_window_size, thres, f1, beta, fpr, rfpr, p, r,
-              tot_pred, tot_labels, tot_cor]], columns=columns),
+            [[tmp_smoothing, tmp_normalization, tmp_diff_window_size,
+              tmp_encoded_dim, tmp_num_rnn_layers, tmp_lr, tmp_hidden_size,
+              tmp_window_size, thres, f1, beta, fpr, rfpr, p, r, tot_pred, tot_labels, tot_cor]], columns=columns),
             ignore_index=True)
+        print("f0.1 = {}".format(f1))
         df_runs.to_csv(output)
+
 
 
 if __name__ == "__main__":
@@ -305,7 +309,6 @@ if __name__ == "__main__":
     iterations = int(sys.argv[3])
 
     output = sys.argv[4]
-
 
     # window multiplier, for multivariate time series, 1 for single variable
     multiplier = 1

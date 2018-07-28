@@ -11,6 +11,7 @@ from sklearn.metrics import roc_auc_score, average_precision_score
 from Loda import Loda
 from SomAnomalyDetector import SomAnomalyDetector
 from dataset import Dataset
+from RnnAnomalyDetector import RnnAnomalyDetector
 
 
 def loader_generic(file):
@@ -62,6 +63,7 @@ def get_thres(labels, scores, beta):
         r = tp / (tp + fn + 1e-7)
 
         # get F1
+
         f1 = ((1 + beta * beta) * p * r) / (beta * beta * p + r + 1e-7)
 
         # FPR
@@ -135,13 +137,15 @@ def search_loda(dataset, iterations, output, multiplier):
         thres, f1, fpr, rfpr, p, r, tot_pred, tot_labels, tot_cor, prc, roc = get_thres(labels[:len(scores)], scores,
                                                                                         beta)
         df_runs = df_runs.append(pd.DataFrame([[tmp_smoothing, tmp_normalization, tmp_window_size, tmp_memory, thres,
-                                                f1, beta, fpr, rfpr, p, r, tot_pred, tot_labels, tot_cor, prc, roc, tmp_order]],
+                                                f1, beta, fpr, rfpr, p, r, tot_pred, tot_labels, tot_cor, prc, roc,
+                                                tmp_order]],
                                               columns=columns), ignore_index=True)
         beta = 0.1
         thres, f1, fpr, rfpr, p, r, tot_pred, tot_labels, tot_cor, prc, roc = get_thres(labels[:len(scores)], scores,
                                                                                         beta)
         df_runs = df_runs.append(pd.DataFrame([[tmp_smoothing, tmp_normalization, tmp_window_size, tmp_memory, thres,
-                                                f1, beta, fpr, rfpr, p, r, tot_pred, tot_labels, tot_cor, prc, roc, tmp_order]],
+                                                f1, beta, fpr, rfpr, p, r, tot_pred, tot_labels, tot_cor, prc, roc,
+                                                tmp_order]],
                                               columns=columns), ignore_index=True)
         df_runs.to_csv(output)
 
@@ -150,7 +154,8 @@ def search_som(dataset, iterations, output, multiplier):
     # msg to print at the end of each iteration
     name = dataset
     columns = ["smoothing", "normalization", "dimension", "wsize", "sigma", "update_weight", "decay_period", "thres",
-               "F1", "beta", "FPR", "RFPR", "Prec", "Rec", "tot_pred", "tot_labels", "tot_correctly_pred", "prc", "roc", "order"]
+               "F1", "beta", "FPR", "RFPR", "Prec", "Rec", "tot_pred", "tot_labels", "tot_correctly_pred", "prc", "roc",
+               "order"]
     df_runs = pd.DataFrame(columns=columns)
 
     # parameters of the search (seed, data, number of trials, etc.)
@@ -208,7 +213,8 @@ def search_som(dataset, iterations, output, multiplier):
             columns=columns), ignore_index=True)
 
         beta = 0.1
-        thres, f1, fpr, rfpr, p, r, tot_pred, tot_labels, tot_cor, rpc, roc = get_thres(labels[:len(scores)], scores, beta)
+        thres, f1, fpr, rfpr, p, r, tot_pred, tot_labels, tot_cor, rpc, roc = get_thres(labels[:len(scores)], scores,
+                                                                                        beta)
         df_runs = df_runs.append(pd.DataFrame(
             [[tmp_smoothing, tmp_normalization, tmp_dimension, tmp_window_size, tmp_sigma, tmp_update_weight,
               tmp_decay_period, thres, f1, beta, fpr, rfpr, p, r, tot_pred, tot_labels, tot_cor, rpc, roc, tmp_order]],

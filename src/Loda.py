@@ -147,9 +147,11 @@ class Loda(object):
         :return:
         """
         # random vector with sqrt(dimensions) non-zero elements
-        vector = np.random.random((1, self._dimensions))
+
+        vector = np.reshape(np.random.randn(self._dimensions), (1, self._dimensions))
         np.random.shuffle(self._nonzero_mask[0])
         vector *= self._nonzero_mask
+        
 
         # compute scores once
         scores = np.dot(vector, data)

@@ -2,11 +2,11 @@
 """
 Script to do hyper parameter search.
 """
-import random
 import sys
 import numpy as np
 import pandas as pd
 import itertools
+from sklearn.metrics import roc_auc_score, average_precision_score
 
 from Loda import Loda
 from SomAnomalyDetector import SomAnomalyDetector
@@ -79,15 +79,18 @@ def get_thres(labels, scores, beta):
             best_recall = r
             pred = predicted_anomalies[:] / 2
 
+    prc = average_precision_score(labels, scores, average=None)
+    roc = roc_auc_score(labels, scores, average=None)
+
     return best_thres, best_f1, best_fpr, best_rfpr_ratio, best_precision, best_recall, np.sum(pred), np.sum(
-        labels), np.sum(
-        labels * pred)
+        labels), np.sum(labels * pred), prc, roc
 
 
 def search_loda(dataset, iterations, output, multiplier):
+    name = dataset
     # saving runs into a dataframe
-    columns = ["smoothing", "normalization", "wsize", "memory", "thres", "F1", "beta", "FPR", "RFPR", "Prec", "Rec", "tot_pred",
-               "tot_labels", "tot_correctly_pred"]
+    columns = ["smoothing", "normalization", "wsize", "memory", "thres", "F1", "beta", "FPR", "RFPR", "Prec", "Rec",
+               "tot_pred", "tot_labels", "tot_correctly_pred", "prc", "roc", "order"]
     df_runs = pd.DataFrame(columns=columns)
 
     # parameters of the search (seed, data, number of trials, etc.)
@@ -95,11 +98,12 @@ def search_loda(dataset, iterations, output, multiplier):
 
     # parameters of the model
     smoothing = [True, False]
+    order = [1, 3, 5, 8, 20, 45]
     normalization = [True, False]
     window_size = [10, 25, 50, 75, 100, 125, 150, 175, 200, 225, 250, 275, 300]
     memory = [200, 400, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000]
 
-    params = [smoothing, normalization, window_size, memory]
+    params = [smoothing, normalization, window_size, memory, order]
     params = list(itertools.product(*params))
     params = np.array(params)
     indices = np.random.randint(0, params.shape[0], iterations)
@@ -107,12 +111,14 @@ def search_loda(dataset, iterations, output, multiplier):
 
     for ite in range(iterations):
         # get parameters for this run
-        tmp_smoothing, tmp_normalization, tmp_window_size, tmp_memory = params[ite]
+        tmp_smoothing, tmp_normalization, tmp_window_size, tmp_memory, tmp_order = params[ite]
         tmp_window_size = int(tmp_window_size) * multiplier
         tmp_window_size = tmp_window_size + 1 if tmp_window_size % 2 == 0 else tmp_window_size
+        if (tmp_smoothing and tmp_window_size < tmp_order + 2) or (name == "riccione" and tmp_smoothing):
+            continue
 
         # init
-        dataset = Dataset(data, tmp_smoothing, tmp_normalization, tmp_window_size, 1, 1)
+        dataset = Dataset(data, tmp_smoothing, tmp_normalization, tmp_window_size, 1, tmp_order)
         scores = np.zeros(len(dataset.data))
         detector = Loda(tmp_window_size, tmp_memory)
 
@@ -126,24 +132,25 @@ def search_loda(dataset, iterations, output, multiplier):
 
         # check which threshold would give the best f1
         beta = 1
-        thres, f1, fpr, rfpr, p, r, tot_pred, tot_labels, tot_cor = get_thres(labels[:len(scores)], scores, beta)
+        thres, f1, fpr, rfpr, p, r, tot_pred, tot_labels, tot_cor, prc, roc = get_thres(labels[:len(scores)], scores,
+                                                                                        beta)
         df_runs = df_runs.append(pd.DataFrame([[tmp_smoothing, tmp_normalization, tmp_window_size, tmp_memory, thres,
-                                                f1, beta, fpr, rfpr, p, r, tot_pred, tot_labels, tot_cor]], columns=columns),
-                                 ignore_index=True)
+                                                f1, beta, fpr, rfpr, p, r, tot_pred, tot_labels, tot_cor, prc, roc, tmp_order]],
+                                              columns=columns), ignore_index=True)
         beta = 0.1
-        thres, f1, fpr, rfpr, p, r, tot_pred, tot_labels, tot_cor = get_thres(labels[:len(scores)], scores, beta)
+        thres, f1, fpr, rfpr, p, r, tot_pred, tot_labels, tot_cor, prc, roc = get_thres(labels[:len(scores)], scores,
+                                                                                        beta)
         df_runs = df_runs.append(pd.DataFrame([[tmp_smoothing, tmp_normalization, tmp_window_size, tmp_memory, thres,
-                                                f1, beta, fpr, rfpr, p, r, tot_pred, tot_labels, tot_cor]], columns=columns),
-                                 ignore_index=True)
+                                                f1, beta, fpr, rfpr, p, r, tot_pred, tot_labels, tot_cor, prc, roc, tmp_order]],
+                                              columns=columns), ignore_index=True)
         df_runs.to_csv(output)
 
 
 def search_som(dataset, iterations, output, multiplier):
     # msg to print at the end of each iteration
-    msg = "smoothing= %s, normalization= %s, dimension= %s, wsize= %s, sigma= %s, update_weight= %s " \
-          "decay_period= %s, thres= %s -> f1 = %s"
+    name = dataset
     columns = ["smoothing", "normalization", "dimension", "wsize", "sigma", "update_weight", "decay_period", "thres",
-               "F1", "beta", "FPR", "RFPR", "Prec", "Rec", "tot_pred", "tot_labels", "tot_correctly_pred"]
+               "F1", "beta", "FPR", "RFPR", "Prec", "Rec", "tot_pred", "tot_labels", "tot_correctly_pred", "prc", "roc", "order"]
     df_runs = pd.DataFrame(columns=columns)
 
     # parameters of the search (seed, data, number of trials, etc.)
@@ -151,6 +158,7 @@ def search_som(dataset, iterations, output, multiplier):
 
     # parameters of the model
     smoothing = [True, False]
+    order = [1, 3, 5, 8, 20, 45]
     normalization = [True, False]
     dimension = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10]
     window_size = [10, 25, 50, 75, 100, 125, 150, 175, 200, 225, 250, 275, 300]
@@ -158,7 +166,7 @@ def search_som(dataset, iterations, output, multiplier):
     update_weight = [0.001, 0.005, 0.1, 0.2, 0.3, 0.4]
     decay_period = [200, 400, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000, 5000, 7000]
 
-    params = [smoothing, normalization, dimension, window_size, sigma, update_weight, decay_period]
+    params = [smoothing, normalization, dimension, window_size, sigma, update_weight, decay_period, order]
     params = list(itertools.product(*params))
     params = np.array(params)
     indices = np.random.randint(0, params.shape[0], iterations)
@@ -166,8 +174,10 @@ def search_som(dataset, iterations, output, multiplier):
 
     for ite in range(iterations):
         # get parameters for this run
-        tmp_smoothing, tmp_normalization, tmp_dimension, tmp_window_size, tmp_sigma, tmp_update_weight, tmp_decay_period = \
+        tmp_smoothing, tmp_normalization, tmp_dimension, tmp_window_size, tmp_sigma, tmp_update_weight, tmp_decay_period, tmp_order = \
             params[ite]
+        if (tmp_smoothing and tmp_window_size < tmp_order + 2) or (name == "riccione" and tmp_smoothing):
+            continue
         tmp_normalization = int(tmp_normalization)
         tmp_window_size = int(tmp_window_size) * multiplier
         tmp_window_size = tmp_window_size + 1 if tmp_window_size % 2 == 0 else tmp_window_size
@@ -175,7 +185,7 @@ def search_som(dataset, iterations, output, multiplier):
         tmp_decay_period = int(tmp_decay_period)
 
         # init
-        dataset = Dataset(data, tmp_smoothing, tmp_normalization, tmp_window_size, 1, 1)
+        dataset = Dataset(data, tmp_smoothing, tmp_normalization, tmp_window_size, 1, tmp_order)
         scores = np.zeros(len(dataset.data))
         detector = SomAnomalyDetector(tmp_dimension, tmp_dimension, tmp_window_size, tmp_sigma, tmp_update_weight,
                                       tmp_decay_period, decay_factor=0.5)
@@ -190,106 +200,25 @@ def search_som(dataset, iterations, output, multiplier):
 
         # check which threshold would give the best f1
         beta = 1
-        thres, f1, fpr, rfpr, p, r, tot_pred, tot_labels, tot_cor = get_thres(labels[:len(scores)], scores, beta)
+        thres, f1, fpr, rfpr, p, r, tot_pred, tot_labels, tot_cor, rpc, roc = get_thres(labels[:len(scores)], scores,
+                                                                                        beta)
         df_runs = df_runs.append(pd.DataFrame(
             [[tmp_smoothing, tmp_normalization, tmp_dimension, tmp_window_size, tmp_sigma, tmp_update_weight,
-              tmp_decay_period, thres, f1, beta, fpr, rfpr, p, r, tot_pred, tot_labels, tot_cor]], columns=columns),
-            ignore_index=True)
+              tmp_decay_period, thres, f1, beta, fpr, rfpr, p, r, tot_pred, tot_labels, tot_cor, rpc, roc, tmp_order]],
+            columns=columns), ignore_index=True)
 
         beta = 0.1
-        thres, f1, fpr, rfpr, p, r, tot_pred, tot_labels, tot_cor = get_thres(labels[:len(scores)], scores, beta)
+        thres, f1, fpr, rfpr, p, r, tot_pred, tot_labels, tot_cor, rpc, roc = get_thres(labels[:len(scores)], scores, beta)
         df_runs = df_runs.append(pd.DataFrame(
             [[tmp_smoothing, tmp_normalization, tmp_dimension, tmp_window_size, tmp_sigma, tmp_update_weight,
-              tmp_decay_period, thres, f1, beta, fpr, rfpr, p, r, tot_pred, tot_labels, tot_cor]], columns=columns),
-            ignore_index=True)
-        df_runs.to_csv(output)
-
-
-def search_rnn(dataset, iterations, output, multiplier):
-    msg = "model= %s, augment= %s, dropout= %s, batch_size= %s, epochs= %s, clip=%s, lr=%s," \
-          "nlayers= %s, nhid = %s, window_size=%s thres= %s -> f1 = %s"
-    columns = ["model", "augment", "dropout", "batch_size", "epochs", "clip", "lr", "nlayers",
-               "nhid", "window_size", "thres",
-               "f1", "beta", "FPR", "RFPR", "Prec", "Rec", "tot_pred", "tot_labels", "tot_correctly_pred"]
-    df_runs = pd.DataFrame(columns=columns)
-    model = ['LSTM']
-    augment = [True, False]
-    augment = [True]
-    seed = [1111]
-    dropout = [0.0, 0.2, 0.5, 0.7]
-    # dropout = [0.0]
-    batch_size = [64, 32, 128]
-    batch_size = [32]
-    epochs = [50, 100, 200]
-    # epochs = [1]
-    clip = [10, 5, 1, 15]
-    lr = [0.0002, 0.0001, 0.0005, 0.001, 0.005]
-    lr = [0.001]
-    nlayers = [2, 1, 3]
-    nlayers = [5]
-    nhid = [32, 64, 128, 256]
-    nhid = [128, 256]
-    # emsize = [128]
-    window_size = [11, 25, 51, 75, 101, 125, 151, 175, 201, 225, 251, 275, 301]
-
-    params = [model, augment, seed, dropout, batch_size, epochs, clip, lr, nlayers, nhid]  # , emsize]
-    params = list(itertools.product(*params))
-    params = np.array(params)
-    indices = np.random.randint(0, params.shape[0], iterations)
-    params = params[indices]
-
-    for ite in range(iterations):
-        # get parameters for this run
-
-        temp_model, temp_augment, temp_seed, temp_dropout, temp_batch_size, \
-        temp_epochs, temp_clip, temp_lr, temp_nlayers, temp_nhid = params[ite]
-
-        print("--------")
-        print(msg % (temp_model, temp_augment, temp_dropout, temp_batch_size,
-                     temp_epochs, temp_clip, temp_lr, temp_nlayers, temp_nhid, "sti cazzi", "sti cazzi", "sti cazzi"))
-        # init
-        data, labels = loader_generic(dataset)
-
-        # give score to each window
-        tmp_window_size = random.choice(window_size)
-        tmp_window_size = int(tmp_window_size) * multiplier
-
-        dataset1 = Dataset(data, False, False, tmp_window_size, 1, 1)
-        scores = np.zeros(len(dataset1.data))
-        detector = None  # RnnAnomalyDetector(trainfile=dataset, testfile=dataset)
-        detector.train(*params[ite])
-        detector.predict()
-
-        print("lunghezza dataset : {}".format(len(dataset1)))
-        for i in range(len(dataset1)):
-            data_point = dataset1[i]
-            window_score = detector.add_data_point(data_point)
-            # update score of elements in window
-            for u in range(i, i + tmp_window_size):
-                scores[u] = max(scores[u], window_score)
-
-        # check which threshold would give the best f1
-        beta = 1
-        thres, f1, fpr, rfpr, p, r, tot_pred, tot_labels, tot_cor = get_thres(labels[:len(scores)], scores, beta)
-        df_runs = df_runs.append(pd.DataFrame(
-            [[temp_model, temp_augment, temp_dropout, temp_batch_size,
-              temp_epochs, temp_clip, temp_lr, temp_nlayers, temp_nhid, tmp_window_size, thres, f1, beta, fpr, rfpr, p, r,
-              tot_pred, tot_labels, tot_cor]], columns=columns),
-            ignore_index=True)
-
-        beta = 0.1
-        thres, f1, fpr, rfpr, p, r, tot_pred, tot_labels, tot_cor = get_thres(labels[:len(scores)], scores, beta)
-        df_runs = df_runs.append(pd.DataFrame(
-            [[temp_model, temp_augment, temp_dropout, temp_batch_size,
-              temp_epochs, temp_clip, temp_lr, temp_nlayers, temp_nhid, tmp_window_size, thres, f1, beta, fpr, rfpr, p, r,
-              tot_pred, tot_labels, tot_cor]], columns=columns),
-            ignore_index=True)
+              tmp_decay_period, thres, f1, beta, fpr, rfpr, p, r, tot_pred, tot_labels, tot_cor, rpc, roc, tmp_order]],
+            columns=columns), ignore_index=True)
         df_runs.to_csv(output)
 
 
 if __name__ == "__main__":
     datasets = ["taxi", "machine", "artificial", "riccione"]
-    algos = ["loda", "som", "rnn"]
+    algos = ["loda", "som"]
 
     # args check
     if len(sys.argv) != 5:
@@ -305,7 +234,6 @@ if __name__ == "__main__":
     iterations = int(sys.argv[3])
 
     output = sys.argv[4]
-
 
     # window multiplier, for multivariate time series, 1 for single variable
     multiplier = 1
@@ -325,5 +253,3 @@ if __name__ == "__main__":
         search_loda(dataset, iterations, output, multiplier)
     elif algo == "som":
         search_som(dataset, iterations, output, multiplier)
-    elif algo == "rnn":
-        search_rnn(dataset, iterations, output, multiplier)

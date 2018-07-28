@@ -11,7 +11,6 @@ from sklearn.metrics import roc_auc_score, average_precision_score
 from Loda import Loda
 from SomAnomalyDetector import SomAnomalyDetector
 from dataset import Dataset
-from RnnAnomalyDetector import RnnAnomalyDetector
 
 
 def loader_generic(file):

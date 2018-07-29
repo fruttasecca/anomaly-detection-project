@@ -3,6 +3,7 @@
 Script to do hyper parameter search.
 """
 import sys
+
 import numpy as np
 import pandas as pd
 import itertools
@@ -11,6 +12,8 @@ from sklearn.metrics import roc_auc_score, average_precision_score
 from Loda import Loda
 from SomAnomalyDetector import SomAnomalyDetector
 from dataset import Dataset
+import luminol
+import luminol.anomaly_detector
 
 
 def loader_generic(file):
@@ -25,7 +28,7 @@ def loader_generic(file):
 
 
 def get_thres(labels, scores, beta):
-    thres = np.arange(0, scores.max(), 0.01)
+    thres = np.arange(0., scores.max(), 0.01)
     thres = thres[::-1]
 
     best_thres = 0
@@ -221,9 +224,86 @@ def search_som(dataset, iterations, output, multiplier):
         df_runs.to_csv(output)
 
 
+def search_luminol(dataset, iterations, output, multiplier):
+    name = dataset
+    # saving runs into a dataframe
+    columns = ["smoothing", "normalization", "precision", "lag_size", "fut_size", "chunk_size", "thres", "F1", "beta",
+               "FPR", "RFPR", "Prec", "Rec",
+               "tot_pred", "tot_labels", "tot_correctly_pred", "prc", "roc", "order"]
+    df_runs = pd.DataFrame(columns=columns)
+
+    # parameters of the search (seed, data, number of trials, etc.)
+    data, labels = loader_generic(dataset)
+
+    # parameters of the model
+    smoothing = [True, False]
+    order = [1, 3, 5, 8, 20, 45]
+    normalization = [True, False]
+    precision = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
+    lag_size = [40, 80, 100, 500, 800, 1000, 1200, 1500, 1800, 2000]
+    fut_size = [40, 80, 100, 500, 800, 1000, 1200, 1500, 1800, 2000]
+    chunk_size = [1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 15, 18, 20, 25, 30, 35, 40, 50, 60, 70, 80, 90, 100]
+
+    params = [smoothing, normalization, precision, lag_size, fut_size, chunk_size, order]
+    params = list(itertools.product(*params))
+    params = np.array(params)
+    indices = np.random.randint(0, params.shape[0], iterations)
+    params = params[indices]
+
+    for ite in range(iterations):
+        # get parameters for this run
+        tmp_smoothing, tmp_normalization, tmp_precision, tmp_lag_size, tmp_fut_size, tmp_chunk_size, tmp_order = params[ite]
+        # tmp_window_size = int(tmp_window_size) * multiplier
+        # tmp_window_size = tmp_window_size + 1 if tmp_window_size % 2 == 0 else tmp_window_size
+        if (tmp_smoothing and tmp_fut_size < tmp_order + 2) or (name == "riccione" and tmp_smoothing) or (tmp_lag_size < tmp_fut_size):
+            continue
+
+        # process data and put in in a dict as required by luminol
+        dataset = Dataset(data, tmp_smoothing, tmp_normalization, tmp_lag_size, 1, tmp_order)
+        processed_data = dataset.data
+        ts = dict()
+        for i, d in enumerate(processed_data):
+            ts[i] = d
+
+        # put params in dict and create detector
+        lumi_params = dict()
+        lumi_params["precision"] = tmp_precision
+        lumi_params["lag_window_size"] = tmp_lag_size
+        lumi_params["future_window_size"] = tmp_fut_size
+        lumi_params["chunk_size"] = tmp_chunk_size
+        detector = luminol.anomaly_detector.AnomalyDetector(ts, algorithm_params=lumi_params)
+
+        # get scores
+        score = detector.get_all_scores()
+        scores = []
+        for (timestamp, value) in score.iteritems():
+            scores.append(value)
+
+        scores = np.array(scores)
+        if scores.max() != 0:
+            scores /= scores.max()
+
+        # check which threshold would give the best f1
+        beta = 1
+        thres, f1, fpr, rfpr, p, r, tot_pred, tot_labels, tot_cor, prc, roc = get_thres(labels[:len(scores)], scores,
+                                                                                        beta)
+        df_runs = df_runs.append(pd.DataFrame([[tmp_smoothing, tmp_normalization, tmp_precision, tmp_lag_size, tmp_fut_size, tmp_chunk_size, thres,
+                                                f1, beta, fpr, rfpr, p, r, tot_pred, tot_labels, tot_cor, prc, roc,
+                                                tmp_order]],
+                                              columns=columns), ignore_index=True)
+        beta = 0.1
+        thres, f1, fpr, rfpr, p, r, tot_pred, tot_labels, tot_cor, prc, roc = get_thres(labels[:len(scores)], scores,
+                                                                                        beta)
+        df_runs = df_runs.append(pd.DataFrame([[tmp_smoothing, tmp_normalization, tmp_precision, tmp_lag_size, tmp_fut_size, tmp_chunk_size, thres,
+                                                f1, beta, fpr, rfpr, p, r, tot_pred, tot_labels, tot_cor, prc, roc,
+                                                tmp_order]],
+                                              columns=columns), ignore_index=True)
+        df_runs.to_csv(output)
+
+
 if __name__ == "__main__":
     datasets = ["taxi", "machine", "artificial", "riccione"]
-    algos = ["loda", "som"]
+    algos = ["loda", "som", "luminol"]
 
     # args check
     if len(sys.argv) != 5:
@@ -258,3 +338,5 @@ if __name__ == "__main__":
         search_loda(dataset, iterations, output, multiplier)
     elif algo == "som":
         search_som(dataset, iterations, output, multiplier)
+    elif algo == "luminol":
+        search_luminol(dataset, iterations, output, multiplier)

@@ -239,10 +239,10 @@ def search_luminol(dataset, iterations, output, multiplier):
     smoothing = [True, False]
     order = [1, 3, 5, 8, 20, 45]
     normalization = [True, False]
-    precision = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
-    lag_size = [40, 80, 100, 500, 800, 1000, 1200, 1500, 1800, 2000]
-    fut_size = [40, 80, 100, 500, 800, 1000, 1200, 1500, 1800, 2000]
-    chunk_size = [1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 15, 18, 20, 25, 30, 35, 40, 50, 60, 70, 80, 90, 100]
+    precision = [8, 16, 32, 64, 128, 256]
+    lag_size = [80, 100, 500, 800, 1000, 1200, 1500, 1800, 2000]
+    fut_size = [40, 80, 100, 500, 800, 1000]
+    chunk_size = [4, 5, 6, 7, 8, 9, 10, 11, 12, 15, 18, 20, 25, 30, 35, 40, 50, 60, 70, 80, 90, 100]
 
     params = [smoothing, normalization, precision, lag_size, fut_size, chunk_size, order]
     params = list(itertools.product(*params))
@@ -255,7 +255,12 @@ def search_luminol(dataset, iterations, output, multiplier):
         tmp_smoothing, tmp_normalization, tmp_precision, tmp_lag_size, tmp_fut_size, tmp_chunk_size, tmp_order = params[ite]
         # tmp_window_size = int(tmp_window_size) * multiplier
         # tmp_window_size = tmp_window_size + 1 if tmp_window_size % 2 == 0 else tmp_window_size
-        if (tmp_smoothing and tmp_fut_size < tmp_order + 2) or (name == "riccione" and tmp_smoothing) or (tmp_lag_size < tmp_fut_size):
+
+        tmp_lag_size *= multiplier
+        tmp_fut_size *= multiplier
+        if (tmp_smoothing and tmp_fut_size < tmp_order + 2) or (name == "riccione" and tmp_smoothing) or (tmp_lag_size < 2*tmp_fut_size):
+            continue
+        if tmp_fut_size < 2*tmp_precision:
             continue
 
         # process data and put in in a dict as required by luminol

@@ -136,15 +136,16 @@ def som_machine():
 
 
 def som_riccione():
-    train = "../data/riccione/train.csv"
-    test = "../data/riccione/test.csv"
+    train = "../data/riccione/train2.csv"
+    test = "../data/riccione/test2.csv"
     train, _ = loader_generic(train)
     test, labels = loader_generic(test)
-    wsize = 601
-    train = Dataset(train, 0, 0, wsize, 1, 5)
-    test = Dataset(test, 0, 0, wsize, 1, 5)
+    wsize = 4801
 
-    detector = SomAnomalyDetector(10, 10, wsize, 1.5, 0.1, 1000, decay_factor=0.5)
+    train = Dataset(train, 1, 1, wsize, 1, 1)
+    test = Dataset(test, 1,1, wsize, 1, 1)
+
+    detector = SomAnomalyDetector(9, 9, wsize, 3, 0.1, 800, decay_factor=0.5)
 
     # use train set just to get statistics in the model
     for i in range(len(train)):
@@ -278,15 +279,15 @@ def loda_machine():
 
 
 def loda_riccione():
-    train = "../data/riccione/train.csv"
-    test = "../data/riccione/test.csv"
+    train = "../data/riccione/train2.csv"
+    test = "../data/riccione/test2.csv"
     train, _ = loader_generic(train)
     test, labels = loader_generic(test)
-    wsize = 301
-    train = Dataset(train, 0, 0, wsize, 1, 1)
-    test = Dataset(test, 0, 0, wsize, 1, 1)
+    wsize = 1801
+    train = Dataset(train, 0, 1, wsize, 1, 1)
+    test = Dataset(test, 0, 1, wsize, 1, 1)
 
-    detector = Loda(wsize, 800)
+    detector = Loda(wsize, 600)
 
     # use train set just to get statistics in the model
     for i in range(len(train)):

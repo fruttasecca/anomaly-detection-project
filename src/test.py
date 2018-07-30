@@ -71,8 +71,8 @@ def som_taxi():
     train, _ = loader_generic(train)
     test, labels = loader_generic(test)
     wsize = 175
-    train = Dataset(train, 1, 0, wsize, 1, 1)
-    test = Dataset(test, 1, 0, wsize, 1, 1)
+    train = Dataset(train, 1, 0, wsize, 1, 5)
+    test = Dataset(test, 1, 0, wsize, 1, 5)
 
     detector = SomAnomalyDetector(8, 8, wsize, 5, 0.001, 1400, decay_factor=0.5)
 
@@ -106,8 +106,8 @@ def som_machine():
     train, _ = loader_generic(train)
     test, labels = loader_generic(test)
     wsize = 275
-    train = Dataset(train, 1, 0, wsize, 1, 1)
-    test = Dataset(test, 1, 0, wsize, 1, 1)
+    train = Dataset(train, 1, 0, wsize, 1, 45)
+    test = Dataset(test, 1, 0, wsize, 1, 45)
 
     detector = SomAnomalyDetector(2, 2, wsize, 3, 0.001, 400, decay_factor=0.5)
 
@@ -141,8 +141,8 @@ def som_riccione():
     train, _ = loader_generic(train)
     test, labels = loader_generic(test)
     wsize = 601
-    train = Dataset(train, 0, 0, wsize, 1, 1)
-    test = Dataset(test, 0, 0, wsize, 1, 1)
+    train = Dataset(train, 0, 0, wsize, 1, 5)
+    test = Dataset(test, 0, 0, wsize, 1, 5)
 
     detector = SomAnomalyDetector(10, 10, wsize, 1.5, 0.1, 1000, decay_factor=0.5)
 
@@ -213,8 +213,8 @@ def loda_taxi():
     train, _ = loader_generic(train)
     test, labels = loader_generic(test)
     wsize = 125
-    train = Dataset(train, 1, 0, wsize, 1, 1)
-    test = Dataset(test, 1, 0, wsize, 1, 1)
+    train = Dataset(train, 1, 0, wsize, 1, 5)
+    test = Dataset(test, 1, 0, wsize, 1, 5)
 
     detector = Loda(wsize, 1600)
 
@@ -320,8 +320,8 @@ def luminol_artificial(other=False):
     train, _ = loader_generic(train)
     test, labels = loader_generic(test)
     lag_size = 1500
-    train = Dataset(train, 1, 0, lag_size, 1, 1).data
-    test = Dataset(test, 1, 0, lag_size, 1, 1).data
+    train = Dataset(train, 1, 0, lag_size, 1, 45).data
+    test = Dataset(test, 1, 0, lag_size, 1, 45).data
 
     lumi_params = dict()
     lumi_params["precision"] = 8
@@ -367,8 +367,8 @@ def luminol_taxi():
     train, _ = loader_generic(train)
     test, labels = loader_generic(test)
     lag_size = 2000
-    train = Dataset(train, 1, 1, lag_size, 1, 1).data
-    test = Dataset(test, 1, 1, lag_size, 1, 1).data
+    train = Dataset(train, 1, 1, lag_size, 1, 8).data
+    test = Dataset(test, 1, 1, lag_size, 1, 8).data
 
     lumi_params = dict()
     lumi_params["precision"] = 4
@@ -414,8 +414,8 @@ def luminol_machine():
     train, _ = loader_generic(train)
     test, labels = loader_generic(test)
     lag_size = 1500
-    train = Dataset(train, 0, 1, lag_size, 1, 1).data
-    test = Dataset(test, 0, 1, lag_size, 1, 1).data
+    train = Dataset(train, 0, 1, lag_size, 1, 3).data
+    test = Dataset(test, 0, 1, lag_size, 1, 3).data
 
     lumi_params = dict()
     lumi_params["precision"] = 2
@@ -540,3 +540,40 @@ if __name__ == "__main__":
             luminol_machine()
         elif dataset == "riccione":
             luminol_riccione()
+    elif algo == "all":
+        if dataset == "artificial1":
+            print("SOM")
+            som_articificial()
+            print("LODA")
+            loda_artificial()
+            print("LUMI")
+            luminol_artificial()
+        elif dataset == "artificial2":
+            print("SOM")
+            som_articificial(other=True)
+            print("LODA")
+            loda_artificial(other=True)
+            print("LUMI")
+            luminol_artificial(other=True)
+        elif dataset == "taxi":
+            print("SOM")
+            som_taxi()
+            print("LODA")
+            loda_taxi()
+            print("LUMI")
+            luminol_taxi()
+        elif dataset == "machine":
+            print("SOM")
+            som_machine()
+            print("LODA")
+            loda_machine()
+            print("LUMI")
+            luminol_machine()
+        elif dataset == "riccione":
+            print("SOM")
+            som_riccione()
+            print("LODA")
+            loda_riccione()
+            print("LUMI")
+            luminol_riccione()
+

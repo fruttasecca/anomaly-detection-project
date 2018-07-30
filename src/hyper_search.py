@@ -335,7 +335,7 @@ if __name__ == "__main__":
     elif dataset == "artificial":
         dataset = "../data/artificial/artificial_train.csv"
     elif dataset == "riccione":
-        dataset = "../data/riccione/train.csv"
+        dataset = "../data/riccione/train2.csv"
         multiplier = 24
 
     # run

@@ -456,19 +456,19 @@ def luminol_machine():
 
 
 def luminol_riccione():
-    train = "../data/riccione/train.csv"
-    test = "../data/riccione/test.csv"
+    train = "../data/riccione/train2.csv"
+    test = "../data/riccione/test2.csv"
     train, _ = loader_generic(train)
     test, labels = loader_generic(test)
-    lag_size = 5000
-    train = Dataset(train, 1, 1, lag_size, 1, 1).data
-    test = Dataset(test, 1, 1, lag_size, 1, 1).data
+    lag_size = 1600
+    train = Dataset(train, 1, 0, lag_size, 1, 5).data
+    test = Dataset(test, 1, 0, lag_size, 1, 5).data
 
     lumi_params = dict()
     lumi_params["precision"] = 14
     lumi_params["lag_window_size"] = lag_size
-    lumi_params["future_window_size"] = 240
-    lumi_params["chunk_size"] = 15
+    lumi_params["future_window_size"] = 600
+    lumi_params["chunk_size"] = 12
 
     # put data as a dict, required by luminol
     processed_data = np.concatenate([train, test])
